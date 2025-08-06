@@ -646,7 +646,7 @@ _________ .__                   .___ _____.__                       ________    
 
 
 "
-#Give the user the choice to do what they want.
+#Give the user the illusion of free will.
 $ans = Read-Host "What function would you like to run?
 
 Download DNSimple Zone File (1)
@@ -663,8 +663,8 @@ elseif ($ans -eq 3) {
     Write-Host "Running Zone Import function!" ; initialize-creds ; import-again
 }
 else {
-    Write-Host "You did not input a valid answer. Please enter 1 or 2." ; exit 0
-
+    Write-Host "You did not input a valid answer. Please enter 1, 2, or 3." ; exit 0
 }
+
 
 
