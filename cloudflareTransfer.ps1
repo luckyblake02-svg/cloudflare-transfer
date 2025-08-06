@@ -350,7 +350,7 @@ function importZones {
             Write-Host "It appears there were URI records in the zone file. We are going to create some url forwarding rules for $domain."
             $content = Get-content "C:\Users\$env:username\Downloads\dnsimple\$domain'URI'.txt"
             #Regex match using 2 capturing groups and 2 non-capturing to get the source and destination address in their own capture.
-            $regexpattern = "((?:\*\.)?(?:w{3}\.)?[a-z]*[-]?[a-z]*\.com\.) [0-9].* http(.*)"
+            $regexpattern = "((?:\*\.)?(?:w{3}\.)?(?:store\.)?[a-z]*[-]?[a-z]*\.com\.) [0-9].* http(.*)"
             #$redirect is set to however many PSCustomObjects are created. 2 URL forwarders = 2 records.
             $redirect = foreach ($src in $content) {
                 $src -match $regexpattern | out-null
@@ -666,4 +666,5 @@ else {
     Write-Host "You did not input a valid answer. Please enter 1 or 2." ; exit 0
 
 }
+
 
