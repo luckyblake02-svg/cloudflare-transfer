@@ -67,7 +67,7 @@ Contributions and issues are welcome! Submit pull requests or file issues for su
 
 ## License
 
-Distributed under the MIT License.
+Distributed under the GPLv3 License.
 
 ## Disclaimer
 
