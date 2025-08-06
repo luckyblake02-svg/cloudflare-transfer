@@ -502,7 +502,6 @@ function importZones {
                             }
                         }
                     } | ConvertTo-Json -Depth 5
-                    $r++
                     #HTTP POST to create rule.
                     $ruleCreate = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$zoneID/rulesets/$rulesetID/rules" -Method Post -Headers @{'X-Auth-Email' = "$email" ; 'X-Auth-Key' = "$token" ; 'Content-Type' = "application/json"} -Body $rule
                     $ruleCreate
@@ -512,6 +511,42 @@ function importZones {
                     else {
                         Write-Host "Rule #$rC created successfully! Rule ID:"$ruleCreate.result.id""
                     }
+                    $r++
+                }
+            }
+            elseif ($testSet.result.rules.count -lt $redirect.count) {
+                Write-Host "Not enough rules found in this ruleset. We will create a rule for"($redirect.count - $testSet.result.rules.count)" URI record(s)."
+                $r = (0 + $testSet.result.rules.count)
+                while ($r -lt $redirect.Count) {
+                    #Rule count for title of rule.
+                    $rC = $r + 1
+                    $rOri = $redirect.origin[$r]
+                    $rDest = $redirect.dest[$r]
+                    #Rule body.
+                    $rule = @{
+                        "version" = "1"
+                        "action" = "redirect"
+                        "expression" = "http.host eq `"$rOri`""
+                        "description" = "Static redirect rule #$rC"
+                        "action_parameters" = @{
+                            "from_value" = @{
+                                "target_url" = @{
+                                    "value" = "$rDest"
+                                }
+                                "status_code" = 301
+                            }
+                        }
+                    } | ConvertTo-Json -Depth 5
+                    #HTTP POST to create rule.
+                    $ruleCreate = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$zoneID/rulesets/$rulesetID/rules" -Method Post -Headers @{'X-Auth-Email' = "$email" ; 'X-Auth-Key' = "$token" ; 'Content-Type' = "application/json"} -Body $rule
+                    $ruleCreate
+                    if ($ruleCreate.success -match "False") {
+                        Write-Host "Creating rules failed with the error :"$ruleCreate.errors.message"" ; exit 0
+                    }
+                    else {
+                        Write-Host "Rule #$rC created successfully! Rule ID:"$ruleCreate.result.id""
+                    }
+                    $r++
                 }
             }
         }
@@ -631,3 +666,4 @@ else {
     Write-Host "You did not input a valid answer. Please enter 1 or 2." ; exit 0
 
 }
+
