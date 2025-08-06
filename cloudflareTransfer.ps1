@@ -315,15 +315,19 @@ function importZones {
 
         Write-Host "Converting the list from JSON..."
         $parseZone = convertfrom-json $zoneGrab
+        $pM = [System.Math]::Ceiling(($parseZone.result_info.total_count) / 50)
         $parseZone | Select-Object -ExpandProperty result | Out-File "C:\Users\$env:username\Downloads\api.txt"
     
         #If the domain is on the file, set $j to it's index.
         $j = [array]::IndexOf($parseZone.result.name, "$domain")
 
-        if ($j -eq -1) {
+        while ($j -eq -1 -and $p -le $pM) {
             #Check the next page just in case that's where the domain is.
-            Write-Host "Domain does not exist on the api file yet. Checking the next page." ; $p++
-            $zoneGrab = Invoke-WebRequest -Headers @{"X-Auth-Email"="$email";"X-Auth-Key"="$token" } "https://api.cloudflare.com/client/v4/zones?per_page=50&page=$p" ; $j = [array]::IndexOf($parseZone.result.name, "$domain")
+            Write-Host "Domain does not exist on the api file yet. Checking the next page."
+            $p++
+            $zoneGrab = Invoke-WebRequest -Headers @{"X-Auth-Email"="$email";"X-Auth-Key"="$token" } "https://api.cloudflare.com/client/v4/zones?per_page=50&page=$p" ; $parseZone = convertfrom-json $zoneGrab
+            $parseZone | Select-Object -ExpandProperty result | Out-File "C:\Users\$env:username\Downloads\api.txt"
+            $j = [array]::IndexOf($parseZone.result.name, "$domain")
         }
         $f++
     }
@@ -625,4 +629,5 @@ elseif ($ans -eq 3) {
 }
 else {
     Write-Host "You did not input a valid answer. Please enter 1 or 2." ; exit 0
+
 }
