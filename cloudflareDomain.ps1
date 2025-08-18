@@ -355,6 +355,9 @@ function importZones {
             $regexpattern = "((?:w{3}\.)?(?:store\.)?(?:commercial\.)?[a-z]*[-]?[a-z]*(?:\.com\.)?(?:\.net\.)?(?:\.org\.)?) [0-9].* http(.*)"
             #$redirect is set to however many PSCustomObjects are created. 2 URL forwarders = 2 records.
             $z = 0
+            $fixContent = $content | ForEach-Object { $_ -replace '\*\.', 'www.' }
+            $fixContent | Set-Content "C:\Users\$env:username\Downloads\dnsimple\$domain'URI'.txt"
+            $content = Get-content "C:\Users\$env:username\Downloads\dnsimple\$domain'URI'.txt"
             $redirect = foreach ($src in $content) {
                 $src -match $regexpattern | out-null
                 if ($? -eq $true) {
@@ -365,23 +368,18 @@ function importZones {
                     }
                 }
             }
-            #If there is only 1 URI record (it messes with indexing)
-            if ($redirect.count -eq 1) {
-                $singleRec = $redirect.origin
-                $singleDest = $redirect.dest
-                #Set flag for later www rule creation.
-                $flag = 0
+            foreach ($src in $content) {
                 #Create CNAME record to point www to root.
-                if ($singleRec -eq "www.$domain") {
+                if ($redirect.origin[$z] -eq "www.$domain") {
                     $recordObj = @{
-                        name    = $singleRec
+                        name    = $redirect.origin[$z]
                         ttl     = 1
                         type    = "CNAME"
                         content = $domain
                         proxied = $true
                     }
                     $params = @{
-                    ContentType = 'application/json'
+                        ContentType = 'application/json'
                         Headers = $headers
                         Body = $recordObj | ConvertTo-Json
                     }
@@ -389,42 +387,9 @@ function importZones {
                     Write-Host $response
                 }
                 #Create A record for store to trigger page rule.
-                elseif ($singleRec -eq "store.$domain") {
+                elseif ($redirect.origin[$z] -eq "store.$domain") {
                     $recordObj = @{
-                        name    = $singleRec
-                        ttl     = 1
-                        type    = "A"
-                        content = "192.0.2.1"
-                        proxied = $true
-                    }
-                    $params = @{
-                    ContentType = 'application/json'
-                        Headers = $headers
-                        Body = $recordObj | ConvertTo-Json
-                    }
-                    $response = Invoke-WebRequest -Method Post -Uri $uri @params
-                    Write-Host $response
-                }
-                #Create A record for commercial to trigger page rule.
-                elseif ($singleRec -eq "commercial.$domain") {
-                    $recordObj = @{
-                        name    = $singleRec
-                        ttl     = 1
-                        type    = "A"
-                        content = "192.0.2.1"
-                        proxied = $true
-                    }
-                    $params = @{
-                    ContentType = 'application/json'
-                        Headers = $headers
-                        Body = $recordObj | ConvertTo-Json
-                    }
-                    $response = Invoke-WebRequest -Method Post-Uri $uri @params
-                    Write-Host $response
-                }
-                elseif ($singleRec -eq "$domain") {
-                    $recordObj = @{
-                        name    = $singleRec
+                        name    = $redirect.origin[$z]
                         ttl     = 1
                         type    = "A"
                         content = "192.0.2.1"
@@ -437,13 +402,30 @@ function importZones {
                     }
                     $response = Invoke-WebRequest -Method Post -Uri $uri @params
                     Write-Host $response
-
-                    #Create www default record as well
+                }
+                #Create A record for commercial to trigger page rule.
+                elseif ($redirect.origin[$z] -eq "commercial.$domain") {
                     $recordObj = @{
-                        name    = "www.$domain"
+                        name    = $redirect.origin[$z]
                         ttl     = 1
-                        type    = "CNAME"
-                        content = $domain
+                        type    = "A"
+                        content = "192.0.2.1"
+                        proxied = $true
+                    }
+                    $params = @{
+                        ContentType = 'application/json'
+                        Headers = $headers
+                        Body = $recordObj | ConvertTo-Json
+                    }
+                    $response = Invoke-WebRequest -Method Post-Uri $uri @params
+                    Write-Host $response
+                }
+                elseif ($redirect.origin[$z] -eq "$domain") {
+                    $recordObj = @{
+                        name    = $redirect.origin[$z]
+                        ttl     = 1
+                        type    = "A"
+                        content = "192.0.2.1"
                         proxied = $true
                     }
                     $params = @{
@@ -456,100 +438,8 @@ function importZones {
                 }
                 else {
                     Write-Host "Something went wrong trying to add records for $domain." ; exit 0
-                }
-            }
-            elseif ($redirect.count -gt 1) {
-                $flag = 1
-                foreach ($src in $content) {
-                    #Create CNAME record to point www to root.
-                    if ($redirect.origin[$z] -eq "www.$domain") {
-                        $recordObj = @{
-                            name    = $redirect.origin[$z]
-                            ttl     = 1
-                            type    = "CNAME"
-                            content = $domain
-                            proxied = $true
-                        }
-                        $params = @{
-                            ContentType = 'application/json'
-                            Headers = $headers
-                            Body = $recordObj | ConvertTo-Json
-                        }
-                        $response = Invoke-WebRequest -Method Post -Uri $uri @params
-                        Write-Host $response
-                    }
-                    #Create A record for store to trigger page rule.
-                    elseif ($redirect.origin[$z] -eq "store.$domain") {
-                        $recordObj = @{
-                            name    = $redirect.origin[$z]
-                            ttl     = 1
-                            type    = "A"
-                            content = "192.0.2.1"
-                            proxied = $true
-                        }
-                        $params = @{
-                            ContentType = 'application/json'
-                            Headers = $headers
-                            Body = $recordObj | ConvertTo-Json
-                        }
-                        $response = Invoke-WebRequest -Method Post -Uri $uri @params
-                        Write-Host $response
-                    }
-                    #Create A record for commercial to trigger page rule.
-                    elseif ($redirect.origin[$z] -eq "commercial.$domain") {
-                        $recordObj = @{
-                            name    = $redirect.origin[$z]
-                            ttl     = 1
-                            type    = "A"
-                            content = "192.0.2.1"
-                            proxied = $true
-                        }
-                        $params = @{
-                            ContentType = 'application/json'
-                            Headers = $headers
-                            Body = $recordObj | ConvertTo-Json
-                        }
-                        $response = Invoke-WebRequest -Method Post-Uri $uri @params
-                        Write-Host $response
-                    }
-                    elseif ($redirect.origin[$z] -eq "$domain") {
-                        $recordObj = @{
-                            name    = $redirect.origin[$z]
-                            ttl     = 1
-                            type    = "A"
-                            content = "192.0.2.1"
-                            proxied = $true
-                        }
-                        $params = @{
-                            ContentType = 'application/json'
-                            Headers = $headers
-                            Body = $recordObj | ConvertTo-Json
-                        }
-                        $response = Invoke-WebRequest -Method Post -Uri $uri @params
-                        Write-Host $response
-                    }
-                    else {
-                        Write-Host "Something went wrong trying to add records for $domain." ; exit 0
-                    } 
-                $z++
-                }
-                if ($content -notcontains "www.$domain") {
-                    #Create www default record as well
-                    $recordObj = @{
-                        name    = "www.$domain"
-                        ttl     = 1
-                        type    = "CNAME"
-                        content = $domain
-                        proxied = $true
-                    }
-                    $params = @{
-                        ContentType = 'application/json'
-                        Headers = $headers
-                        Body = $recordObj | ConvertTo-Json
-                    }
-                    $response = Invoke-WebRequest -Method Post -Uri $uri @params
-                    Write-Host $response
-                }
+                } 
+            $z++
             }
 
             #This is just to save typing later.
@@ -610,17 +500,14 @@ function importZones {
                         -H "X-Auth-Key: $token"
             $testSet = $testSet | ConvertFrom-Json
 
-            #Variable to account for www record.
-            $modCount = $redirect.count + 1
-
             #Declare array for counter later.
             $destNum = @()
 
-            #If there was only 1 redirect.
-            if ($flag -eq 0) {
-                $rOri = $singleRec
-                $rDest = $singleDest
-                $rC = $testSet.result.rules.Count + 1
+            $rC = 1
+            $z = 0
+            while ($z -lt $redirect.count) {
+                $rOri = $redirect.origin[$z]
+                $rDest = $redirect.dest[$z]
                 #Rule body.
                 $rule = @{
                     "version" = "1"
@@ -635,87 +522,14 @@ function importZones {
                             "status_code" = 301
                         }
                     }   
-                    } | ConvertTo-Json -Depth 5
+                } | ConvertTo-Json -Depth 5
                 #HTTP POST to create rule.
                 $ruleCreate = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$zoneID/rulesets/$rulesetID/rules" -Method Post -Headers @{'X-Auth-Email' = "$email" ; 'X-Auth-Key' = "$token" ; 'Content-Type' = "application/json"} -Body $rule
                 $ruleCreate
 
-                $destNum += $rDest
-
+                $destNum += $redirect.dest[$z]
+                $z++
                 $rC++
-                #Rule body for www rule.
-                $rOri = "www.$domain"
-                $rDest = $domain
-                $rule = @{
-                    "version" = "1"
-                    "action" = "redirect"
-                    "expression" = "http.host eq $rOri"
-                    "description" = "Static redirect rule #$rC"
-                    "action_parameters" = @{
-                        "from_value" = @{
-                            "target_url" = @{
-                                "value" = "$rDest"
-                            }
-                            "status_code" = 301
-                        }
-                    }       
-                    } | ConvertTo-Json -Depth 5
-                #HTTP POST to create rule.
-                $ruleCreate = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$zoneID/rulesets/$rulesetID/rules" -Method Post -Headers @{'X-Auth-Email' = "$email" ; 'X-Auth-Key' = "$token" ; 'Content-Type' = "application/json"} -Body $rule
-                $ruleCreate
-
-                $destNum += $rDest
-            }
-            elseif ($flag -eq 1) {
-                $rC = $testSet.result.rules.Count + 1
-                while ($z -le $redirect.count) {
-                    $rOri = $redirect.origin[$z]
-                    $rDest = $redirect.dest[$z]
-                    #Rule body.
-                    $rule = @{
-                        "version" = "1"
-                        "action" = "redirect"
-                        "expression" = "http.host eq `"$rOri`""
-                        "description" = "Static redirect rule #$rC"
-                        "action_parameters" = @{
-                            "from_value" = @{
-                                "target_url" = @{
-                                    "value" = "$rDest"
-                                }
-                                "status_code" = 301
-                            }
-                        }   
-                        } | ConvertTo-Json -Depth 5
-                    #HTTP POST to create rule.
-                    $ruleCreate = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$zoneID/rulesets/$rulesetID/rules" -Method Post -Headers @{'X-Auth-Email' = "$email" ; 'X-Auth-Key' = "$token" ; 'Content-Type' = "application/json"} -Body $rule
-                    $ruleCreate
-
-                    $destNum += $redirect.dest[$z]
-                    $z++
-                    $rC++
-                }
-                #Rule body for www rule.
-                $rOri = "www.$domain"
-                $rDest = $domain
-                $rule = @{
-                    "version" = "1"
-                    "action" = "redirect"
-                    "expression" = "http.host eq $rOri"
-                    "description" = "Static redirect rule #$rC"
-                    "action_parameters" = @{
-                        "from_value" = @{
-                            "target_url" = @{
-                                "value" = "$rDest"
-                            }
-                            "status_code" = 301
-                        }
-                    }       
-                    } | ConvertTo-Json -Depth 5
-                #HTTP POST to create rule.
-                $ruleCreate = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$zoneID/rulesets/$rulesetID/rules" -Method Post -Headers @{'X-Auth-Email' = "$email" ; 'X-Auth-Key' = "$token" ; 'Content-Type' = "application/json"} -Body $rule
-                $ruleCreate
-
-                $destNum += $rDest
             }
 
             #HTTP GET request to see how many http redirect rules exist.
@@ -735,8 +549,8 @@ function importZones {
                 }
             }
 
-            #If rule count is less than the amount of URL redirects in the URI file , AND is greater than 0.
-            if ($testSet.result.rules.count -lt $modCount -and $testSet.result.rules.Count -gt 0) {
+            #If rule count is less than the amount of URL redirects in the URI file , AND is greater than 0. Or there are too many rules.
+            if (($testSet.result.rules.count -lt $redirect.Count -and $testSet.result.rules.Count -gt 0) -or $testSet.result.rules.count -gt $redirect.Count) {
                 Write-Host "We already found"$testSet.result.rules.Count"rule(s) for $domain. We will delete the existing rules and add what we have back."
                 foreach ($staleRule in $testSet.result.rules) {
                     $ruleID = $staleRule.id
@@ -775,21 +589,20 @@ function importZones {
                 }
             }
             
+            $testSet = curl.exe -s "$url/$zoneID/rulesets/phases/http_request_dynamic_redirect/entrypoint" `
+                        -H "X-Auth-Email: $email" `
+                        -H "X-Auth-Key: $token"
+            $testSet = $testSet | ConvertFrom-Json
+
             #Identical condition, except this is on purpose to trigger when the HTTP DELETE requests are called.
             if ($testSet.result.rules.Count -eq 0) {
                 Write-Host "No rules found in this ruleset. We will create a rule for $modCount URI record(s)."
                 $r = 0
-                while ($r -lt $modCount) {
+                while ($r -lt $redirect.Count) {
                     #Rule count for title of rule.
                     $rC = $r + 1
-                    if ($flag -eq 1) {
-                        $rOri = $redirect.origin[$r]
-                        $rDest = $redirect.dest[$r]
-                    }
-                    elseif ($flag -eq 0) {
-                        $rOri = $singleRec
-                        $rDest = $singleDest
-                    }
+                    $rOri = $redirect.origin[$r]
+                    $rDest = $redirect.dest[$r]
                     #Rule body.
                     $rule = @{
                         "version" = "1"
@@ -817,20 +630,14 @@ function importZones {
                     $r++
                 }
             }
-            elseif ($testSet.result.rules.count -lt $modCount) {
+            elseif ($testSet.result.rules.count -lt $redirect.Count) {
                 Write-Host "Not enough rules found in this ruleset. We will create a rule for"($modCount - $testSet.result.rules.count)" URI record(s)."
                 $r = $testSet.result.rules.count
                 while ($r -lt $redirect.Count) {
                     #Rule count for title of rule.
                     $rC = $r + 1
-                    if ($flag -eq 1) {
-                        $rOri = $redirect.origin[$r]
-                        $rDest = $redirect.dest[$r]
-                    }
-                    elseif ($flag -eq 0) {
-                        $rOri = $singleRec
-                        $rDest = $singleDest
-                    }
+                    $rOri = $redirect.origin[$r]
+                    $rDest = $redirect.dest[$r]
                     #Rule body.
                     $rule = @{
                         "version" = "1"
@@ -857,28 +664,6 @@ function importZones {
                     }
                     $r++
                 }
-                #Rule body for www rule.
-                $rC++
-                $hostVal = "www.$rOri"
-                $rule = @{
-                    "version" = "1"
-                    "action" = "redirect"
-                    "expression" = "http.host eq $hostVal"
-                    "description" = "Static redirect rule #$rC"
-                    "action_parameters" = @{
-                        "from_value" = @{
-                            "target_url" = @{
-                                "value" = "$rDest"
-                            }
-                            "status_code" = 301
-                        }
-                    }   
-                    } | ConvertTo-Json -Depth 5
-                #HTTP POST to create rule.
-                $ruleCreate = Invoke-RestMethod -Uri "https://api.cloudflare.com/client/v4/zones/$zoneID/rulesets/$rulesetID/rules" -Method Post -Headers @{'X-Auth-Email' = "$email" ; 'X-Auth-Key' = "$token" ; 'Content-Type' = "application/json"} -Body $rule
-                $ruleCreate
-
-                $destNum += $rDest
             }
         }
     }
@@ -993,6 +778,7 @@ elseif ($ans -eq 3) {
 else {
     Write-Host "You did not input a valid answer. Please enter 1, 2, or 3." ; exit 0
 }
+
 
 
 
