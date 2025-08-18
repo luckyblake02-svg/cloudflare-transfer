@@ -631,7 +631,7 @@ function importZones {
                 }
             }
             elseif ($testSet.result.rules.count -lt $redirect.Count) {
-                Write-Host "Not enough rules found in this ruleset. We will create a rule for"($modCount - $testSet.result.rules.count)" URI record(s)."
+                Write-Host "Not enough rules found in this ruleset. We will create a rule for"($redirect.count - $testSet.result.rules.count)" URI record(s)."
                 $r = $testSet.result.rules.count
                 while ($r -lt $redirect.Count) {
                     #Rule count for title of rule.
@@ -778,6 +778,7 @@ elseif ($ans -eq 3) {
 else {
     Write-Host "You did not input a valid answer. Please enter 1, 2, or 3." ; exit 0
 }
+
 
 
 
