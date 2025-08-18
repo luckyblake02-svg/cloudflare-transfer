@@ -941,8 +941,6 @@ function importZones {
         #Do it all over again.
         import-again
     }
-
-    Write-Host "Returning to addDomain!"}
     #If the domain was not found after 3 tries.
     elseif ($j -eq -1 -and $f -eq 3) {
         Write-Host "$domain does not exist in the Cloudflare zone file yet. We tried to locate it. $domain will be output to 'RedoNameServ.txt' if it is not already there, so you can revisit later and re-run the importZones function."
@@ -995,5 +993,6 @@ elseif ($ans -eq 3) {
 else {
     Write-Host "You did not input a valid answer. Please enter 1, 2, or 3." ; exit 0
 }
+
 
 
