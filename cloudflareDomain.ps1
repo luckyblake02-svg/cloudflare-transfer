@@ -417,7 +417,7 @@ function importZones {
                         Headers = $headers
                         Body = $recordObj | ConvertTo-Json
                     }
-                    $response = Invoke-WebRequest -Method Post-Uri $uri @params
+                    $response = Invoke-WebRequest -Method Post Uri $uri @params
                     Write-Host $response
                 }
                 elseif ($redirect.origin[$z] -eq "$domain") {
@@ -436,9 +436,46 @@ function importZones {
                     $response = Invoke-WebRequest -Method Post -Uri $uri @params
                     Write-Host $response
                 }
+                elseif ($redirect.count -eq 1) {
+                    $recordObj = @{
+                        name    = "www.$domain"
+                        ttl     = 1
+                        type    = "CNAME"
+                        content = $domain
+                        proxied = $true
+                    }
+                    $params = @{
+                        ContentType = 'application/json'
+                        Headers = $headers
+                        Body = $recordObj | ConvertTo-Json
+                    }
+                    try {$response = Invoke-WebRequest -Method Post -Uri $uri @params}
+                    catch {
+                        if ($response.errors.code -eq 81053) {
+                            Write-Host "CNAME record already exists! Continuing"
+                        }
+                    }
+                    
+                    Write-Host $response
+                    
+                    $recordObj = @{
+                        name    = $redirect.origin
+                        ttl     = 1
+                        type    = "A"
+                        content = "192.0.2.1"
+                        proxied = $true
+                    }
+                    $params = @{
+                        ContentType = 'application/json'
+                        Headers = $headers
+                        Body = $recordObj | ConvertTo-Json
+                    }
+                    $response = Invoke-WebRequest -Method Post -Uri $uri @params
+                    Write-Host $response
+                }
                 else {
-                    Write-Host "Something went wrong trying to add records for $domain." ; exit 0
-                } 
+                    Write-Host "Something went wrong with $domain." ; exit 0
+                }
             $z++
             }
 
@@ -778,6 +815,7 @@ elseif ($ans -eq 3) {
 else {
     Write-Host "You did not input a valid answer. Please enter 1, 2, or 3." ; exit 0
 }
+
 
 
 
