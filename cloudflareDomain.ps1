@@ -216,13 +216,12 @@ function csc_NS {
 
     Write-Host "  
 
-_________ .__                  .__                 _________   __________________   __________                              .___      
-\_   ___ \|  |__ _____    ____ |__| ____    ____   \_   ___ \ /   _____/\_   ___ \  \______   \ ____   ____  ___________  __| _/______
-/    \  \/|  |  \\__  \  /    \|  |/    \  / ___\  /    \  \/ \_____  \ /    \  \/   |       _// __ \_/ ___\/  _ \_  __ \/ __ |/  ___/
-\     \___|   Y  \/ __ \|   |  \  |   |  \/ /_/  > \     \____/        \\     \____  |    |   \  ___/\  \__(  <_> )  | \/ /_/ |\___ \ 
- \______  /___|  (____  /___|  /__|___|  /\___  /   \______  /_______  / \______  /  |____|_  /\___  >\___  >____/|__|  \____ /____  >
-        \/     \/     \/     \/        \//_____/           \/        \/         \/          \/     \/     \/                 \/    \/ 
-
+_________ .__                          .__                 _________   __________________   __________                              .___      
+\_   ___ \|  |__ _____    ____    ____ |__| ____    ____   \_   ___ \ /   _____/\_   ___ \  \______   \ ____   ____  ___________  __| _/______
+/    \  \/|  |  \\__  \  /    \  / ___\|  |/    \  / ___\  /    \  \/ \_____  \ /    \  \/   |       _// __ \_/ ___\/  _ \_  __ \/ __ |/  ___/
+\     \___|   Y  \/ __ \|   |  \/ /_/  >  |   |  \/ /_/  > \     \____/        \\     \____  |    |   \  ___/\  \__(  <_> )  | \/ /_/ |\___ \ 
+ \______  /___|  (____  /___|  /\___  /|__|___|  /\___  /   \______  /_______  / \______  /  |____|_  /\___  >\___  >____/|__|  \____ /____  >
+        \/     \/     \/     \//_____/         \//_____/           \/        \/         \/          \/     \/     \/                 \/    \/ 
     "
 
     $nameSrv = Get-content -Path "C:\Users\$env:username\Downloads\nameservers.txt"
@@ -785,6 +784,65 @@ function importZones {
     }
 }
 
+function get-zoneid {
+    Write-Host "
+      ________        __    __________                     .___________   
+     /  _____/  _____/  |_  \____    /____   ____   ____   |   \______ \  
+    /   \  ____/ __ \   __\   /     //  _ \ /    \_/ __ \  |   ||    |  \ 
+    \    \_\  \  ___/|  |    /     /(  <_> )   |  \  ___/  |   ||    `   \
+     \______  /\___  >__|   /_______ \____/|___|  /\___  > |___/_______  /
+            \/     \/               \/          \/     \/              \/ 
+    "
+    $j = -1
+    $p = 1 
+    $f = 0
+
+    $domain = Read-Host -Prompt "Please enter the name of the domain you would like to search for"
+
+    #$j changes to the index of the array where the domain is located. Since it is an array, 0 is a valid index. Use -1. $f tracks how many times we've tried it. Give it 3 good tries and move on.
+    while ($j -eq -1 -and $f -lt 3) {
+        try {
+            Write-Host "Grabbing the zone list from Cloudflare..."
+            #API Request to cloudflare for list of current domain entries. When a new domain is added, it should replicate here within minutes. 50 results per page, use $p as page counter once you exceed 50 domains.
+            $zoneGrab = Invoke-WebRequest -Headers @{"X-Auth-Email"="$email";"X-Auth-Key"="$token" } -Uri "https://api.cloudflare.com/client/v4/zones?per_page=50&page=$p"
+        } 
+        catch { Write-Host "API Call for master zone list failed." ; exit 0}
+
+        Write-Host "Converting the list from JSON..."
+        $parseZone = convertfrom-json $zoneGrab
+        $pM = [System.Math]::Ceiling(($parseZone.result_info.total_count) / 50)
+        $parseZone | Select-Object -ExpandProperty result | Out-File "C:\Users\$env:username\Downloads\api.txt"
+    
+        #If the domain is on the file, set $j to it's index.
+        $j = [array]::IndexOf($parseZone.result.name, "$domain")
+
+        while ($j -eq -1 -and $p -le $pM) {
+            #Check the next page just in case that's where the domain is.
+            Write-Host "Domain does not exist on the api file yet. Checking the next page."
+            $p++
+            $zoneGrab = Invoke-WebRequest -Headers @{"X-Auth-Email"="$email";"X-Auth-Key"="$token" } "https://api.cloudflare.com/client/v4/zones?per_page=50&page=$p" ; $parseZone = convertfrom-json $zoneGrab
+            $parseZone | Select-Object -ExpandProperty result | Out-File "C:\Users\$env:username\Downloads\api.txt"
+            $j = [array]::IndexOf($parseZone.result.name, "$domain")
+        }
+        $f++
+    }
+
+    #If successful, $j maps to an index.
+    if ($j -ne -1) {
+
+        #Zone ID is a unique string cloudflare sets to identify a domain. Zone name is the domain name.
+        $zoneID = $parseZone.result[$j].id
+        $zoneName = $parseZone.result[$j].name
+
+        Write-Host "Here is the zone information! 
+                    Zone Name: $zoneName
+                    Zone ID: $zoneID"
+    }
+    else {
+        Write-Host "Domain not found in zone list. Please check Cloudflare and try again." ; exit 0
+    }
+}
+
 Write-Host "
 _________ .__                   .___ _____.__                       ________                        .__                          ____ 
 \_   ___ \|  |   ____  __ __  __| _// ____\  | _____ _______   ____ \______ \   ____   _____ _____  |__| ____      ______  _____/_   |
@@ -796,28 +854,27 @@ _________ .__                   .___ _____.__                       ________    
 
 
 "
-#Give the user the illusion of free will.
+#Give the user the choice to do what they want.
 $ans = Read-Host "What function would you like to run?
 
 Download DNSimple Zone File (1)
 Add a domain to Cloudflare (2)
 Re-Run Cloudflare NS Records Update (3)
+Grab a domain's zone information (4)
 "
-if ($ans -eq 1) {
-    Write-Host "Running DNS Zone function!" ; get-dnszone
-}
-elseif ($ans -eq 2) {
-    Write-Host "Running Add Domain function!" ; initialize-creds ; addDomain
-}
-elseif ($ans -eq 3) {
-    Write-Host "Running Zone Import function!" ; initialize-creds ; import-again
-}
-else {
-    Write-Host "You did not input a valid answer. Please enter 1, 2, or 3." ; exit 0
-}
-
-
-
-
-
-
+switch ($ans) {
+    (1) {
+        Write-Host "Running DNS Zone function!" ; get-dnszone
+    }
+    (2) {
+        Write-Host "Running Add Domain function!" ; initialize-creds ; addDomain
+    }
+    (3) {
+        Write-Host "Running Zone Import function!" ; initialize-creds ; import-again
+    }
+    (4) {
+        Write-Host "Running zone info function!" ; initialize-creds ; get-zoneid
+    }
+    default {
+        Write-Host "You did not input a valid answer. Please enter 1 or 2." ; exit 0
+    }
